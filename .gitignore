@@ -1,0 +1,13 @@
+# Ignore arquivos e pastas sensíveis e temporários
+.env
+*.pyc
+__pycache__/
+keys/
+notebooks/
+mlruns/
+*.log
+node_modules/
+dist/
+.terraform/
+*.tfstate
+*.tfstate.*

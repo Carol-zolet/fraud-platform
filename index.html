@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FraudWatch — Monitor de Transações</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060a0f;
+    --surface: #0d1520;
+    --border: #1a2d44;
+    --accent: #00e5ff;
+    --danger: #ff2d55;
+    --warn: #ffb800;
+    --safe: #00ff9d;
+    --text: #c8dff0;
+    --muted: #4a6680;
+    --glow-accent: 0 0 20px rgba(0,229,255,0.3);
+    --glow-danger: 0 0 20px rgba(255,45,85,0.4);
+    --glow-safe: 0 0 20px rgba(0,255,157,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-icon {
+    width: 44px;
+    height: 44px;
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--glow-accent);
+    animation: pulse-border 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-border {
+    0%, 100% { box-shadow: var(--glow-accent); }
+    50% { box-shadow: 0 0 35px rgba(0,229,255,0.6); }
+  }
+
+  .logo-icon svg { width: 24px; height: 24px; }
+
+  .logo-text h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #fff;
+  }
+
+  .logo-text p {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--safe);
+    box-shadow: 0 0 8px var(--safe);
+    animation: blink 2s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .status-text { color: var(--safe); }
+  .last-update { color: var(--muted); }
+
+  /* Cards grid */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.3s;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .card-total::before { background: linear-gradient(90deg, var(--accent), transparent); }
+  .card-fraud::before { background: linear-gradient(90deg, var(--danger), transparent); }
+  .card-rate::before { background: linear-gradient(90deg, var(--warn), transparent); }
+
+  .card:hover { transform: translateY(-3px); }
+  .card-total:hover { border-color: rgba(0,229,255,0.4); box-shadow: var(--glow-accent); }
+  .card-fraud:hover { border-color: rgba(255,45,85,0.4); box-shadow: var(--glow-danger); }
+
+  .card-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-label span {
+    display: inline-block;
+    width: 3px;
+    height: 3px;
+    background: currentColor;
+    border-radius: 50%;
+  }
+
+  .card-value {
+    font-size: 52px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -1px;
+    transition: color 0.5s;
+  }
+
+  .card-total .card-value { color: var(--accent); }
+  .card-fraud .card-value { color: var(--danger); }
+  .card-rate .card-value { color: var(--warn); font-size: 40px; }
+
+  .card-sub {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  /* Corner decoration */
+  .card-corner {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    opacity: 0.08;
+    font-size: 56px;
+    font-weight: 900;
+    line-height: 1;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* Alert banner */
+  .alert {
+    display: none;
+    align-items: center;
+    gap: 14px;
+    background: rgba(255,45,85,0.08);
+    border: 1px solid rgba(255,45,85,0.4);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 28px;
+    animation: fadeIn 0.4s ease;
+    box-shadow: 0 0 30px rgba(255,45,85,0.15);
+  }
+
+  .alert.visible { display: flex; }
+
+  .alert-icon {
+    font-size: 22px;
+    animation: shake 0.5s ease-in-out infinite alternate;
+  }
+
+  @keyframes shake {
+    from { transform: rotate(-5deg); }
+    to { transform: rotate(5deg); }
+  }
+
+  .alert-text strong {
+    display: block;
+    color: var(--danger);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .alert-text span {
+    font-size: 13px;
+    color: rgba(255,45,85,0.7);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* Mini activity bar */
+  .activity {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .activity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .activity-title {
+    font-size: 13px;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .refresh-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--accent);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .refresh-btn:hover {
+    background: rgba(0,229,255,0.08);
+    border-color: var(--accent);
+    box-shadow: var(--glow-accent);
+  }
+
+  .refresh-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .progress-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .progress-label {
+    width: 120px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+
+  .progress-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .fill-accent { background: linear-gradient(90deg, #005b6b, var(--accent)); }
+  .fill-danger { background: linear-gradient(90deg, #6b0015, var(--danger)); }
+
+  .progress-pct {
+    width: 44px;
+    text-align: right;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  /* Footer */
+  footer {
+    margin-top: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  footer a { color: var(--accent); text-decoration: none; }
+
+  /* Loading state */
+  .skeleton {
+    background: linear-gradient(90deg, var(--border) 25%, rgba(255,255,255,0.05) 50%, var(--border) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+    height: 52px;
+    width: 80px;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .loading-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(6,10,15,0.7);
+    backdrop-filter: blur(2px);
+    border-radius: 12px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .spin {
+    width: 24px; height: 24px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .value-update {
+    animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes pop {
+    0% { transform: scale(0.85); opacity: 0.5; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @media (max-width: 640px) {
+    .cards { grid-template-columns: 1fr; }
+    header { flex-direction: column; gap: 16px; align-items: flex-start; }
+    .card-value { font-size: 40px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#00e5ff" stroke-width="2" stroke-linecap="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <h1>FraudWatch</h1>
+        <p>Sistema de Monitoramento · AWS Lambda</p>
+      </div>
+    </div>
+    <div class="status-bar">
+      <div class="status-dot" id="statusDot"></div>
+      <span class="status-text" id="statusText">ONLINE</span>
+      <span class="last-update" id="lastUpdate">—</span>
+    </div>
+  </header>
+
+  <!-- Alert banner (shows when fraud rate > 5%) -->
+  <div class="alert" id="alertBanner">
+    <div class="alert-icon">🚨</div>
+    <div class="alert-text">
+      <strong>ALERTA DE FRAUDE DETECTADO</strong>
+      <span id="alertMsg">Taxa de fraude acima do limite aceitável</span>
+    </div>
+  </div>
+
+  <div class="cards">
+    <!-- Total transactions -->
+    <div class="card card-total">
+      <div class="card-label"><span></span>Transações</div>
+      <div class="card-value" id="totalVal">—</div>
+      <div class="card-sub">Total processado</div>
+      <div class="card-corner">#</div>
+    </div>
+
+    <!-- Frauds -->
+    <div class="card card-fraud">
+      <div class="card-label"><span></span>Fraudes</div>
+      <div class="card-value" id="fraudVal">—</div>
+      <div class="card-sub">Transações suspeitas</div>
+      <div class="card-corner">!</div>
+    </div>
+
+    <!-- Rate -->
+    <div class="card card-rate">
+      <div class="card-label"><span></span>Taxa de Fraude</div>
+      <div class="card-value" id="rateVal">—</div>
+      <div class="card-sub">Do total processado</div>
+      <div class="card-corner">%</div>
+    </div>
+  </div>
+
+  <!-- Progress bars -->
+  <div class="activity">
+    <div class="activity-header">
+      <span class="activity-title">// Proporções em tempo real</span>
+      <button class="refresh-btn" id="refreshBtn" onclick="fetchData()">↻ Atualizar</button>
+    </div>
+
+    <div class="progress-row">
+      <span class="progress-label">Legítimas</span>
+      <div class="progress-track">
+        <div class="progress-fill fill-accent" id="legitBar" style="width: 0%"></div>
+      </div>
+      <span class="progress-pct" id="legitPct">—</span>
+    </div>
+
+    <div class="progress-row">
+      <span class="progress-label">Fraudulentas</span>
+      <div class="progress-track">
+        <div class="progress-fill fill-danger" id="fraudBar" style="width: 0%"></div>
+      </div>
+      <span class="progress-pct" id="fraudPct">—</span>
+    </div>
+  </div>
+
+  <footer>
+    <span>PUCRS · Projeto de Engenharia de Software · Carol</span>
+    <span>AWS API Gateway → Lambda → DynamoDB</span>
+  </footer>
+
+</div>
+
+<script>
+  const API_URL = 'https://80fg89umwc.execute-api.sa-east-1.amazonaws.com?get_stats=true';
+  let autoRefreshInterval;
+
+  function animateValue(el, newVal) {
+    el.classList.remove('value-update');
+    void el.offsetWidth; // reflow
+    el.textContent = newVal;
+    el.classList.add('value-update');
+  }
+
+  async function fetchData() {
+    const btn = document.getElementById('refreshBtn');
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    try {
+      // Using a CORS proxy for local testing if needed
+      const response = await fetch(API_URL, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        mode: 'cors'
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+
+      updateUI(data);
+
+    } catch (err) {
+      console.warn('Fetch error:', err);
+      showOffline();
+      // If CORS blocks direct fetch, show mock data for demo
+      if (err.message.includes('CORS') || err.message.includes('Failed to fetch') || err.name === 'TypeError') {
+        showDemoMode();
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '↻ Atualizar';
+    }
+  }
+
+  function updateUI(data) {
+    const total = data.total_transacoes ?? 0;
+    const fraudes = data.total_fraudes ?? 0;
+    const taxa = data.taxa_fraude ?? '0%';
+    const status = data.status_nuvem ?? 'online';
+
+    animateValue(document.getElementById('totalVal'), total);
+    animateValue(document.getElementById('fraudVal'), fraudes);
+    animateValue(document.getElementById('rateVal'), taxa);
+
+    // Progress bars
+    const fraudPct = total > 0 ? (fraudes / total) * 100 : 0;
+    const legitPct = 100 - fraudPct;
+
+    document.getElementById('legitBar').style.width = legitPct + '%';
+    document.getElementById('fraudBar').style.width = fraudPct + '%';
+    document.getElementById('legitPct').textContent = legitPct.toFixed(1) + '%';
+    document.getElementById('fraudPct').textContent = fraudPct.toFixed(1) + '%';
+
+    // Alert
+    const alert = document.getElementById('alertBanner');
+    const rateNum = parseFloat(taxa);
+    if (rateNum > 5) {
+      alert.classList.add('visible');
+      document.getElementById('alertMsg').textContent =
+        `${taxa} de fraude detectado — ${fraudes} transações suspeitas de ${total} totais`;
+    } else {
+      alert.classList.remove('visible');
+    }
+
+    // Status
+    document.getElementById('statusDot').style.background = status === 'online' ? 'var(--safe)' : 'var(--warn)';
+    document.getElementById('statusText').textContent = status.toUpperCase();
+    document.getElementById('statusText').style.color = status === 'online' ? 'var(--safe)' : 'var(--warn)';
+    document.getElementById('lastUpdate').textContent = '· atualizado ' + new Date().toLocaleTimeString('pt-BR');
+  }
+
+  function showOffline() {
+    document.getElementById('statusDot').style.background = 'var(--danger)';
+    document.getElementById('statusText').textContent = 'ERRO';
+    document.getElementById('statusText').style.color = 'var(--danger)';
+  }
+
+  function showDemoMode() {
+    // Simulate data if CORS blocks the request
+    const mockData = {
+      total_transacoes: 27,
+      total_fraudes: 1,
+      taxa_fraude: '3.70%',
+      status_nuvem: 'online'
+    };
+    updateUI(mockData);
+    document.getElementById('lastUpdate').textContent = '· modo demo (CORS)';
+  }
+
+  // Auto-refresh every 10 seconds
+  fetchData();
+  autoRefreshInterval = setInterval(fetchData, 10000);
+</script>
+</body>
+</html>
