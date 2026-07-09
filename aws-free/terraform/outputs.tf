@@ -21,3 +21,11 @@ output "dynamodb_table" {
 output "models_bucket" {
   value = aws_s3_bucket.models.bucket
 }
+
+output "lambda_function_name" {
+  value = aws_lambda_function.fn_ml_predict.function_name
+}
+
+output "api_endpoint" {
+  value = aws_apigatewayv2_api.fraud_api.api_endpoint
+}

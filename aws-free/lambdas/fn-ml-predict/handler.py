@@ -6,8 +6,8 @@ import os
 from datetime import datetime
 from boto3.dynamodb.conditions import Attr
 
-# Configuração de Região (us-east-1 onde está o banco e o bucket)
-REGION = "us-east-1"
+# Configuração de Região (sa-east-1, região canônica da trilha AWS)
+REGION = "sa-east-1"
 
 # Inicializa clientes AWS
 s3 = boto3.client("s3", region_name=REGION)
