@@ -15,6 +15,7 @@ dynamodb = boto3.resource("dynamodb", region_name=REGION)
 
 BUCKET = os.environ.get("MODELS_BUCKET")
 TABLE_NAME = "fraud-audit-logs"
+API_KEY = os.environ.get("API_KEY")
 
 # Carregamento do modelo IA (Warm Start)
 def load_model():
@@ -30,8 +31,17 @@ def load_model():
 model = load_model()
 
 def lambda_handler(event, context):
+    headers_in = event.get("headers") or {}
+    provided_key = headers_in.get("x-api-key") or headers_in.get("X-Api-Key")
+    if not API_KEY or provided_key != API_KEY:
+        return {
+            "statusCode": 401,
+            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+            "body": json.dumps({"error": "Não autorizado"})
+        }
+
     table = dynamodb.Table(TABLE_NAME)
-    
+
     try:
         # --- MODO MÉTRICAS (Para o Grafana Free Tier) ---
         # Se a URL for chamada com ?get_stats=true

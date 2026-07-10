@@ -496,14 +496,17 @@
   </div>
 
   <footer>
-    <span>PUCRS · Projeto de Engenharia de Software · Carol</span>
+    <span>Plataforma de Detecção de Fraudes · Carol Zolet</span>
     <span>AWS API Gateway → Lambda → DynamoDB</span>
   </footer>
 
 </div>
 
 <script>
-  const API_URL = 'https://80fg89umwc.execute-api.sa-east-1.amazonaws.com?get_stats=true';
+  // Preencha com sua própria URL da API Gateway e API key antes de usar.
+  // Nunca commite valores reais aqui — este arquivo é público.
+  const API_URL = 'https://SUA-API-ID.execute-api.SUA-REGIAO.amazonaws.com?get_stats=true';
+  const API_KEY = 'SUA-API-KEY-AQUI';
   let autoRefreshInterval;
 
   function animateValue(el, newVal) {
@@ -522,7 +525,7 @@
       // Using a CORS proxy for local testing if needed
       const response = await fetch(API_URL, {
         method: 'GET',
-        headers: { 'Accept': 'application/json' },
+        headers: { 'Accept': 'application/json', 'x-api-key': API_KEY },
         mode: 'cors'
       });
 

@@ -98,13 +98,14 @@ resource "aws_lambda_function" "fn_ml_predict" {
   function_name = "fn-ml-predict"
   role          = aws_iam_role.lambda_fraud_role.arn
   package_type  = "Image"
-  image_uri     = "280348121735.dkr.ecr.sa-east-1.amazonaws.com/fn-ml-predict:latest"
+  image_uri     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.sa-east-1.amazonaws.com/fn-ml-predict:latest"
   timeout       = 15
   memory_size   = 512
 
   environment {
     variables = {
       MODELS_BUCKET = aws_s3_bucket.models.bucket
+      API_KEY       = var.api_key
     }
   }
 }

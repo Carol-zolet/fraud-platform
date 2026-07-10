@@ -2,11 +2,19 @@ import requests
 import time
 import random
 import uuid
+import os
+import sys
 
-# AQUI ESTÁ O SEGREDO: Use a URL da sua API Gateway
-# Deve ser algo como: https://80fg89umwc.execute-api.sa-east-1.amazonaws.com
-# IMPORTANTE: Não coloque o "?get_stats=true" aqui, pois esse script vai ENVIAR dados (POST)
-API_URL = "https://80fg89umwc.execute-api.sa-east-1.amazonaws.com"
+# Configure via variáveis de ambiente antes de rodar, por exemplo:
+#   export API_URL="https://SUA-API-ID.execute-api.SUA-REGIAO.amazonaws.com"
+#   export API_KEY="sua-api-key"
+# IMPORTANTE: Não coloque o "?get_stats=true" na API_URL, pois esse script ENVIA dados (POST)
+API_URL = os.environ.get("API_URL")
+API_KEY = os.environ.get("API_KEY")
+
+if not API_URL or not API_KEY:
+    print("Defina as variáveis de ambiente API_URL e API_KEY antes de rodar este script.")
+    sys.exit(1)
 
 def enviar_transacao():
     # Simulando nomes da sua família e amigos para ficar real
@@ -26,7 +34,7 @@ def enviar_transacao():
 
     try:
         # Faz o POST para a AWS
-        response = requests.post(API_URL, json=payload, timeout=10)
+        response = requests.post(API_URL, json=payload, headers={"x-api-key": API_KEY}, timeout=10)
         
         if response.status_code == 200:
             print(" ✅ Sucesso!")

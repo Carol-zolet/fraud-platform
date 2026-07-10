@@ -9,3 +9,9 @@ variable "db_password" {
   type        = string
   sensitive   = true
 }
+
+variable "api_key" {
+  description = "API key exigida no header x-api-key pela Lambda fn-ml-predict (sem default — fornecer via TF_VAR_api_key ou tfvars não versionado)"
+  type        = string
+  sensitive   = true
+}
