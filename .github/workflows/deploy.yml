@@ -1,0 +1,104 @@
+name: Deploy AWS
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: sa-east-1
+  ECR_REPOSITORY: fn-ml-predict
+  LAMBDA_FUNCTION_NAME: fn-ml-predict
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Test auth-service
+        working-directory: auth-service
+        run: |
+          npm install
+          npm test
+
+      - name: Test api-gateway
+        working-directory: api-gateway
+        run: |
+          npm install
+          npm test
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ml-serving e feature-service ainda não têm testes escritos.
+      # pytest sai com código 5 quando não coleta nenhum teste — tratamos isso
+      # como não-fatal por enquanto, mas qualquer falha real (código != 5) quebra o job.
+      - name: Test ml-serving
+        working-directory: ml-serving
+        run: |
+          pip install -r requirements.txt pytest
+          pytest || { code=$?; [ "$code" -eq 5 ] && echo "Nenhum teste encontrado em ml-serving" || exit "$code"; }
+
+      - name: Test feature-service
+        working-directory: services/feature-service
+        run: |
+          pip install -r requirements.txt pytest
+          pytest || { code=$?; [ "$code" -eq 5 ] && echo "Nenhum teste encontrado em feature-service" || exit "$code"; }
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image to ECR
+        working-directory: aws-free/lambdas/fn-ml-predict
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+        run: |
+          docker build --platform linux/amd64 --provenance=false --sbom=false \
+            -t "$REGISTRY/$ECR_REPOSITORY:latest" .
+          docker push "$REGISTRY/$ECR_REPOSITORY:latest"
+
+      - name: Update Lambda function code
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+        run: |
+          aws lambda update-function-code \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --image-uri "$REGISTRY/$ECR_REPOSITORY:latest" \
+            --region "$AWS_REGION"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # ATENÇÃO: este projeto usa state local (sem backend remoto configurado),
+      # então este plan roda sem conhecer os recursos reais já existentes na conta
+      # e vai propor recriar tudo do zero. Serve como validação de sintaxe/coerência
+      # do .tf, não como um preview real de mudanças. Configurar um backend S3 +
+      # DynamoDB lock table resolveria isso.
+      - name: Terraform plan (validação, sem apply)
+        working-directory: aws-free/terraform
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+        run: |
+          terraform init
+          terraform plan

@@ -1,5 +1,7 @@
 # Fraud Platform
 
+[![Deploy AWS](https://github.com/Carol-zolet/fraud-platform/actions/workflows/deploy.yml/badge.svg)](https://github.com/Carol-zolet/fraud-platform/actions/workflows/deploy.yml)
+
 Plataforma de detecção de fraudes em transações financeiras em tempo real, construída como arquitetura de microsserviços orientada a eventos (Kafka), com um modelo de Machine Learning (XGBoost) servindo predições de fraude em tempo real.
 
 ## Arquitetura
