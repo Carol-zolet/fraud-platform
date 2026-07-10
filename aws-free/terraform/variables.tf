@@ -11,7 +11,8 @@ variable "db_password" {
 }
 
 variable "api_key" {
-  description = "API key exigida no header x-api-key pela Lambda fn-ml-predict (sem default — fornecer via TF_VAR_api_key ou tfvars não versionado)"
+  description = "API key exigida no header x-api-key pela Lambda fn-ml-predict (default vazio só para evitar prompt interativo no CI — o valor real vem de TF_VAR_api_key)"
   type        = string
   sensitive   = true
+  default     = ""
 }
