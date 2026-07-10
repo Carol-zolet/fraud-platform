@@ -95,21 +95,26 @@ resource "aws_iam_role_policy_attachment" "lambda_dynamodb_full" {
 }
 
 resource "aws_lambda_function" "fn_ml_predict" {
-  function_name    = "fn-ml-predict"
-  role             = aws_iam_role.lambda_fraud_role.arn
-  handler          = "handler.lambda_handler"
-  runtime          = "python3.9"
-  filename         = "${path.module}/../lambdas/fn-ml-predict/function.zip"
-  source_code_hash = filebase64sha256("${path.module}/../lambdas/fn-ml-predict/function.zip")
-  timeout          = 3
-  memory_size      = 128
-  layers           = ["arn:aws:lambda:sa-east-1:336392948345:layer:AWSSDKPandas-Python39:13"]
+  function_name = "fn-ml-predict"
+  role          = aws_iam_role.lambda_fraud_role.arn
+  package_type  = "Image"
+  image_uri     = "280348121735.dkr.ecr.sa-east-1.amazonaws.com/fn-ml-predict:latest"
+  timeout       = 15
+  memory_size   = 512
 
   environment {
     variables = {
       MODELS_BUCKET = aws_s3_bucket.models.bucket
     }
   }
+}
+
+resource "aws_lambda_permission" "apigw_invoke" {
+  statement_id  = "apigateway-access"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.fn_ml_predict.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.fraud_api.execution_arn}/*/*"
 }
 
 resource "aws_apigatewayv2_api" "fraud_api" {
