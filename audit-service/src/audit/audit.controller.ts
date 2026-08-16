@@ -1,6 +1,7 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuditService } from './audit.service';
 import { EventPattern, Payload, Ctx, KafkaContext } from '@nestjs/microservices';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('audit')
 export class AuditController {
@@ -26,18 +27,24 @@ export class AuditController {
   }
 
   // --- Rotas GET (usadas pelo Grafana e Frontend) ---
+  // Guard aplicado por método, não na classe: o @EventPattern acima não é uma
+  // requisição HTTP (não tem request.headers), então um @UseGuards de classe
+  // quebraria o consumo de mensagens do Kafka.
 
   @Get()
+  @UseGuards(JwtAuthGuard)
   async findAll(@Query('limit') limit = 50) {
     return this.auditService.findAll(Number(limit));
   }
 
   @Get('frauds')
+  @UseGuards(JwtAuthGuard)
   async findFrauds(@Query('limit') limit = 50) {
     return this.auditService.findFrauds(Number(limit));
   }
 
   @Get('stats')
+  @UseGuards(JwtAuthGuard)
   async getStats() {
     return this.auditService.getStats();
   }
