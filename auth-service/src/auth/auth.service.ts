@@ -11,10 +11,11 @@ export class AuthService {
   ) {}
 
   async validateUser(username: string, password: string) {
-    const user = await this.usersService.findOne(username);
+    const user = this.usersService.findOne(username);
     if (!user) throw new UnauthorizedException('Usuário não encontrado');
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) throw new UnauthorizedException('Senha incorreta');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...result } = user;
     return result;
   }
