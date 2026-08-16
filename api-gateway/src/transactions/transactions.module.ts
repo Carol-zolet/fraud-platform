@@ -13,7 +13,9 @@ function readKeyFile(filename: string): Buffer {
   ];
   const found = candidates.find((candidate) => fs.existsSync(candidate));
   if (!found) {
-    throw new Error(`Chave não encontrada: ${filename} (procurado em ${candidates.join(', ')})`);
+    throw new Error(
+      `Chave não encontrada: ${filename} (procurado em ${candidates.join(', ')})`,
+    );
   }
   return fs.readFileSync(found);
 }

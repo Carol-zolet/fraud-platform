@@ -2,6 +2,14 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Kafka, Producer } from 'kafkajs';
 
+interface TransactionPayload {
+  amount: number;
+  merchant: string;
+  location: string;
+  userId: number;
+  role: string;
+}
+
 @Injectable()
 export class TransactionsService implements OnModuleInit {
   private producer: Producer;
@@ -10,7 +18,9 @@ export class TransactionsService implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {
     this.kafka = new Kafka({
       clientId: 'api-gateway',
-      brokers: [this.configService.get<string>('KAFKA_BROKER', 'localhost:29092')],
+      brokers: [
+        this.configService.get<string>('KAFKA_BROKER', 'localhost:29092'),
+      ],
     });
   }
 
@@ -20,7 +30,7 @@ export class TransactionsService implements OnModuleInit {
     console.log('Kafka producer conectado!');
   }
 
-  async publish(transaction: any) {
+  async publish(transaction: TransactionPayload) {
     const message = {
       ...transaction,
       id: Date.now(),

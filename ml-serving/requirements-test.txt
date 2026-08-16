@@ -1,0 +1,9 @@
+# Dependências extras só para rodar os testes localmente/CI.
+# xgboost fica de fora do requirements.txt de produção porque o Dockerfile
+# instala com --no-deps (evita puxar dependências pesadas como nvidia-nccl
+# que só importam para GPU) — aqui não tem esse cuidado, é só para testes.
+-r requirements.txt
+xgboost==2.1.3
+pytest==8.3.4
+pytest-cov==6.0.0
+httpx==0.28.1

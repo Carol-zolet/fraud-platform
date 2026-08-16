@@ -1,0 +1,3 @@
+# Copie para backend.hcl (gitignored) e preencha com o bucket real da sua conta.
+# Uso: terraform init -backend-config=backend.hcl
+bucket = "fraud-platform-terraform-state-<SEU_ACCOUNT_ID>"

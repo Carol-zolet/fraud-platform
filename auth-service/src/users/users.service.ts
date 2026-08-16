@@ -14,9 +14,24 @@ export class UsersService {
 
   constructor(private configService: ConfigService) {
     this.users = [
-      { id: 1, username: 'admin', password: this.getRequiredHash('ADMIN_PASSWORD_HASH'), role: 'admin' },
-      { id: 2, username: 'analyst', password: this.getRequiredHash('ANALYST_PASSWORD_HASH'), role: 'analyst' },
-      { id: 3, username: 'viewer', password: this.getRequiredHash('VIEWER_PASSWORD_HASH'), role: 'viewer' },
+      {
+        id: 1,
+        username: 'admin',
+        password: this.getRequiredHash('ADMIN_PASSWORD_HASH'),
+        role: 'admin',
+      },
+      {
+        id: 2,
+        username: 'analyst',
+        password: this.getRequiredHash('ANALYST_PASSWORD_HASH'),
+        role: 'analyst',
+      },
+      {
+        id: 3,
+        username: 'viewer',
+        password: this.getRequiredHash('VIEWER_PASSWORD_HASH'),
+        role: 'viewer',
+      },
     ];
   }
 
@@ -28,7 +43,7 @@ export class UsersService {
     return value;
   }
 
-  async findOne(username: string): Promise<User | undefined> {
-    return this.users.find(u => u.username === username);
+  findOne(username: string): User | undefined {
+    return this.users.find((u) => u.username === username);
   }
 }

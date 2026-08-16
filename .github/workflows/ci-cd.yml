@@ -1,0 +1,183 @@
+name: CI/CD Microsserviços
+
+# Pipeline paralelo ao deploy.yml (que cuida só da trilha Lambda fn-ml-predict).
+# Este cobre os 4 microsserviços: api-gateway, auth-service, audit-service, ml-serving.
+#
+# ATENÇÃO — job "deploy" roda `terraform apply -auto-approve` automaticamente em todo
+# push na main, sem revisão humana. O backend remoto (S3 + DynamoDB lock table)
+# já resolve o problema de colisão de nome com recursos pré-existentes (Cognito,
+# DynamoDB, IAM role, Lambda) que existia quando o state era só local — mas a
+# falta de revisão humana antes do apply continua real. Considere adicionar um
+# "environment" do GitHub com required reviewers antes de confiar nisso em produção.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: sa-east-1
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api-gateway
+            language: node
+          - service: auth-service
+            language: node
+          - service: audit-service
+            language: node
+          - service: ml-serving
+            language: python
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        if: matrix.language == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Python
+        if: matrix.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install (Node)
+        if: matrix.language == 'node'
+        working-directory: ${{ matrix.service }}
+        run: npm install
+
+      # audit-service não tem script "lint" definido — --if-present evita
+      # que o job quebre por falta de script, sem mascarar falha real de lint.
+      - name: Lint (Node)
+        if: matrix.language == 'node'
+        working-directory: ${{ matrix.service }}
+        run: npm run lint --if-present
+
+      # auth.service.spec.ts resolve a chave via path.join(process.cwd(), '..',
+      # 'keys', filename) quando cwd é auth-service/ — por isso este step roda
+      # na raiz do repo (sem working-directory), gerando keys/ um nível acima
+      # de auth-service/. keys/ é gitignored (correto, nunca commitar chaves
+      # reais), então um checkout novo do Actions não tem esse arquivo; sem
+      # este step, o JwtModule falha com "Chave não encontrada: private.pem".
+      # Par efêmero, só para os testes — não é a chave real de produção.
+      # ml-serving também passou a exigir JWT no /predict (OWASP A01) — os
+      # testes geram e verificam token com essas mesmas chaves.
+      - name: Generate ephemeral RSA keys (auth-service and ml-serving tests)
+        if: matrix.service == 'auth-service' || matrix.service == 'ml-serving'
+        run: |
+          mkdir -p keys
+          openssl genrsa -out keys/private.pem 2048
+          openssl rsa -in keys/private.pem -pubout -out keys/public.pem
+
+      # --if-present continua aqui por segurança para serviços futuros sem
+      # script "test" — hoje os 3 (api-gateway, auth-service, audit-service)
+      # já têm testes reais configurados.
+      - name: Test (Node)
+        if: matrix.language == 'node'
+        working-directory: ${{ matrix.service }}
+        run: npm test --if-present -- --coverage
+
+      - name: Build (Node)
+        if: matrix.language == 'node'
+        working-directory: ${{ matrix.service }}
+        run: npm run build
+
+      # requirements-test.txt inclui requirements.txt + xgboost (o Dockerfile
+      # instala via --no-deps separadamente, não está no requirements.txt de
+      # produção) + pytest/httpx — sem isso a importação de main.py falha com
+      # ModuleNotFoundError ao tentar carregar o modelo .pkl.
+      - name: Install (Python)
+        if: matrix.language == 'python'
+        working-directory: ${{ matrix.service }}
+        run: pip install -r requirements-test.txt
+
+      # ml-serving não tem flake8 configurado ainda — exit-zero pra não quebrar
+      # o pipeline por lint enquanto isso não é decidido/configurado à parte.
+      - name: Lint (Python)
+        if: matrix.language == 'python'
+        working-directory: ${{ matrix.service }}
+        run: pip install flake8 && flake8 . --count --exit-zero
+
+      - name: Test (Python)
+        if: matrix.language == 'python'
+        working-directory: ${{ matrix.service }}
+        run: pytest --cov=.
+
+      - name: Build (Python)
+        if: matrix.language == 'python'
+        run: echo "ml-serving não tem etapa de build separada (Python interpretado, sem passo de compilação)"
+
+  docker-build-push:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api-gateway, auth-service, audit-service, ml-serving]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Pressupõe que o repositório ECR de cada serviço já existe (criado via
+      # aws-free/terraform/main.tf, recurso aws_ecr_repository.services). Se esse
+      # apply ainda não rodou, este passo falha com "repository does not exist".
+      - name: Build and push image
+        working-directory: ${{ matrix.service }}
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          SERVICE: ${{ matrix.service }}
+        run: |
+          docker build -t "$REGISTRY/$SERVICE:latest" -t "$REGISTRY/$SERVICE:${{ github.sha }}" .
+          docker push "$REGISTRY/$SERVICE:latest"
+          docker push "$REGISTRY/$SERVICE:${{ github.sha }}"
+
+  deploy:
+    needs: docker-build-push
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # Backend remoto (S3 + DynamoDB lock table) configurado — este apply agora
+      # reflete o state real compartilhado com o ambiente local, então recursos
+      # que já existem (Cognito, DynamoDB, IAM role, Lambda) não são recriados
+      # nem geram erro de nome duplicado.
+      - name: Terraform init/plan/apply
+        working-directory: aws-free/terraform
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_api_key: ${{ secrets.TF_API_KEY }}
+        run: |
+          terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"
+          terraform plan -out=tfplan
+          terraform apply -auto-approve tfplan

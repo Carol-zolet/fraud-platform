@@ -4,11 +4,13 @@ import os
 from datetime import datetime, timezone
 from typing import Optional
 import numpy as np
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 from kafka import KafkaProducer, KafkaConsumer
 import uvicorn
 import threading
+
+from auth import verify_jwt
 
 app = FastAPI(title="ML Serving - Fraud Detection")
 
@@ -47,7 +49,7 @@ def health():
     return {"status": "ok", "model": "xgboost_fraud_v1"}
 
 @app.post("/predict")
-def predict(transaction: Transaction):
+def predict(transaction: Transaction, _jwt_payload: dict = Depends(verify_jwt)):
     data = transaction.model_dump()
     amount_scaled = scaler.transform([[data["amount"]]])[0][0]
     hour_of_day = data["hour_of_day"] if data["hour_of_day"] is not None else datetime.now(timezone.utc).hour

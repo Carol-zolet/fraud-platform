@@ -90,16 +90,14 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      # ATENÇÃO: este projeto usa state local (sem backend remoto configurado),
-      # então este plan roda sem conhecer os recursos reais já existentes na conta
-      # e vai propor recriar tudo do zero. Serve como validação de sintaxe/coerência
-      # do .tf, não como um preview real de mudanças. Configurar um backend S3 +
-      # DynamoDB lock table resolveria isso.
+      # Backend remoto (S3 + DynamoDB lock table) configurado — este plan agora
+      # reflete o state real compartilhado com o ambiente local, sem propor
+      # recriar recursos que já existem.
       - name: Terraform plan (validação, sem apply)
         working-directory: aws-free/terraform
         env:
           TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
           TF_VAR_api_key: ${{ secrets.TF_API_KEY }}
         run: |
-          terraform init
+          terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"
           terraform plan
