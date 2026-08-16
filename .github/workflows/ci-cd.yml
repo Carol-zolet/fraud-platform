@@ -69,8 +69,10 @@ jobs:
       # reais), então um checkout novo do Actions não tem esse arquivo; sem
       # este step, o JwtModule falha com "Chave não encontrada: private.pem".
       # Par efêmero, só para os testes — não é a chave real de produção.
-      - name: Generate ephemeral RSA keys (auth-service tests)
-        if: matrix.service == 'auth-service'
+      # ml-serving também passou a exigir JWT no /predict (OWASP A01) — os
+      # testes geram e verificam token com essas mesmas chaves.
+      - name: Generate ephemeral RSA keys (auth-service and ml-serving tests)
+        if: matrix.service == 'auth-service' || matrix.service == 'ml-serving'
         run: |
           mkdir -p keys
           openssl genrsa -out keys/private.pem 2048
